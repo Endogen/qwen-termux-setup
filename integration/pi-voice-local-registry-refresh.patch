@@ -1,0 +1,387 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 23c3f7a..cf86d11 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,8 @@
+ 
+ ## Unreleased
+ 
++- Fixed Refresh models reading a stale Pi registry snapshot after local providers were configured. Idle sessions now await a local-only registry reload; busy sessions defer it until idle. Concurrent readers share the reload, configuration failures are sanitized, and overlapping model/input operations are guarded. Added regression coverage for providers added after a real Pi process starts.
++
+ - Extracted the session controller and polling coordinator from the main frontend. Added real Chromium tests at desktop and phone sizes for dialogs, image decoding, model/session races, notification navigation and failed replies; CI retains failure traces and screenshots.
+ - Workers restore the saved app stay-awake preference at cold startup without waiting for the page, and reassert the Termux wake lock before each agent run. Disabled preferences and per-worker `/voice sleep` overrides are respected. This improves CPU wakefulness but cannot override Android/OEM network restrictions or process killing.
+ - Failed or aborted assistant replies remain visible even when empty; the UI reports the error rather than silently returning to idle. Failures do not play success feedback or automatically replay work.
+diff --git a/README.md b/README.md
+index e38a13c..87a6446 100644
+--- a/README.md
++++ b/README.md
+@@ -109,7 +109,7 @@ Closing one session leaves the host and other sessions running. Closing the last
+ 
+ ### Changing models
+ 
+-Open **Settings → Connected Pi**, filter by model name, ID or provider, choose a model, then tap **Use model** and confirm. The list comes from that Pi process's configured, authenticated model registry, including compatible local providers. **Refresh models** reads that registry again; it does not configure providers or necessarily reload Pi's configuration files.
++Open **Settings → Connected Pi**, filter by model name, ID or provider, choose a model, then tap **Use model** and confirm. The list comes from that Pi process's configured, authenticated model registry, including compatible local providers. **Refresh models** reloads Pi's local model configuration when its registry supports refresh; it never configures providers or requests remote model catalogs. During a task or model change it shows the cached list, then refreshes after the task finishes. Older registries without refresh support still need a Pi restart to pick up configuration changes.
+ 
+ - The change affects **only this Pi session**. Its conversation, your unsent draft and images, other Pi processes, and Pi's default model are kept. A selection made in Pi's terminal is reflected in the app too.
+ - Finish or stop the current task and finish recording/preparing images first. Sending, recording and starting a session are disabled while the app waits for a model change. Stale process, conversation and previous-model selections are rejected rather than applied to another target.
+diff --git a/bridge.mjs b/bridge.mjs
+index 271594a..4b39009 100644
+--- a/bridge.mjs
++++ b/bridge.mjs
+@@ -53,7 +53,7 @@ export async function createVoiceBridge({ token, getState, getActivity, getModel
+         send(200, getActivity());
+       } else if (req.method === 'GET' && path === '/api/models') {
+         if (!getModels) throw fail(501, 'Model switching is not installed. Restart Pi after updating.');
+-        send(200, getModels());
++        send(200, await getModels());
+       } else if (req.method === 'POST' && path === '/api/model') {
+         const body = await readJSON(req);
+         if (!body || typeof body !== 'object' || Array.isArray(body) || typeof body.sessionId !== 'string') throw fail(400, 'A model selection and current session ID are required.');
+diff --git a/models.mjs b/models.mjs
+index bc5f665..b4acf48 100644
+--- a/models.mjs
++++ b/models.mjs
+@@ -20,6 +20,7 @@ export function publicModel(model) {
+ /** Session-scoped adapter. Pi owns authentication, persistence and capabilities. */
+ export function createModelSelection({ pi, getContext, blocked = () => false }) {
+   let switching = false;
++  let refreshing;
+   const supported = () => typeof pi.setModel === 'function' && typeof getContext()?.modelRegistry?.getAvailable === 'function';
+   const available = () => {
+     try { return getContext().modelRegistry.getAvailable(); }
+@@ -30,16 +31,41 @@ export function createModelSelection({ pi, getContext, blocked = () => false })
+   }
+   function checkIdle() {
+     const ctx = getContext();
+-    if (switching || blocked() || !ctx.isIdle() || ctx.hasPendingMessages()) {
++    if (switching || refreshing || blocked() || !ctx.isIdle() || ctx.hasPendingMessages()) {
+       throw fail(409, 'Finish or stop the current task before changing models.');
+     }
+   }
+   return {
+     supported,
+-    get switching() { return switching; },
+-    list() {
++    get switching() { return switching || Boolean(refreshing); },
++    async list() {
+       if (!supported()) throw fail(501, 'Model switching is unavailable. Restart Pi after updating.');
+       const ctx = getContext();
++      const sessionId = ctx.sessionManager.getSessionId();
++      let refreshDeferred = false;
++      // getAvailable() is a snapshot. Reload local configuration before reading
++      // it, without discovering remote catalogs or disturbing an active turn.
++      if (typeof ctx.modelRegistry.refresh === 'function') {
++        if (!refreshing && !switching && !blocked() && ctx.isIdle() && !ctx.hasPendingMessages()) {
++          const pending = Promise.resolve().then(async () => {
++            try {
++              const result = await ctx.modelRegistry.refresh({ allowNetwork: false, signal: AbortSignal.timeout(10000) });
++              if (result?.aborted || ctx.modelRegistry.getError?.()) throw new Error('Registry refresh failed');
++            } catch {
++              throw fail(502, 'Could not refresh Pi’s model configuration. Check models.json in Termux, then try again.');
++            }
++          });
++          refreshing = pending;
++          // All concurrent readers share the same refresh. Release the guard
++          // before any reader returns or propagates its sanitized error.
++          try { await pending; } finally { if (refreshing === pending) refreshing = undefined; }
++        } else if (refreshing) {
++          await refreshing;
++        } else {
++          refreshDeferred = true;
++        }
++      }
++      checkSession(sessionId);
+       const seen = new Set();
+       const models = available().map(publicModel).filter((model) => {
+         if (!model) return false;
+@@ -48,8 +74,9 @@ export function createModelSelection({ pi, getContext, blocked = () => false })
+         seen.add(key); return true;
+       }).sort((a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+       const usage = ctx.getContextUsage?.();
+-      return { sessionId: ctx.sessionManager.getSessionId(), current: modelReference(ctx.model), models,
+-        contextTokens: Number.isSafeInteger(usage?.tokens) && usage.tokens >= 0 ? usage.tokens : null };
++      return { sessionId, current: modelReference(getContext().model), models,
++        contextTokens: Number.isSafeInteger(usage?.tokens) && usage.tokens >= 0 ? usage.tokens : null,
++        ...(refreshDeferred ? { refreshDeferred: true } : {}) };
+     },
+     async select({ sessionId, provider, id, expectedModel }) {
+       if (!supported()) throw fail(501, 'Model switching is unavailable. Restart Pi after updating.');
+diff --git a/native/integration.mjs b/native/integration.mjs
+index 910b77a..0e01259 100644
+--- a/native/integration.mjs
++++ b/native/integration.mjs
+@@ -3,7 +3,7 @@
+ import assert from 'node:assert/strict';
+ import { execFile } from 'node:child_process';
+ import { promisify } from 'node:util';
+-import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
++import { mkdtemp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
+ import { join } from 'node:path';
+ import { homedir, tmpdir } from 'node:os';
+ import { randomUUID } from 'node:crypto';
+@@ -41,6 +41,10 @@ async function until(check, label) {
+ }
+ try {
+   await configureTestModels(root);
++  // Opt out in test state: the Termux cold-start default must not make this
++  // verification acquire a real Android wake lock.
++  await mkdir(directory, { recursive: true, mode: 0o700 });
++  await writeFile(join(directory, 'wake-settings.json'), JSON.stringify({ enabled: false }), { mode: 0o600 });
+   await exec(pi, ['--version']); await exec(tmux, ['-V']);
+   await start();
+   const first = await until(async () => (await request('sessions')).sessions.find((e) => e.status === 'ready'), 'first Pi');
+diff --git a/src/model-picker.js b/src/model-picker.js
+index c134059..abbf22d 100644
+--- a/src/model-picker.js
++++ b/src/model-picker.js
+@@ -63,7 +63,7 @@
+       $('model-apply').textContent = changing ? 'Changing…' : 'Use model';
+       const details = model ? [labelOf(model), model.contextWindow ? `${model.contextWindow.toLocaleString()} token context` : 'Context unknown', model.input?.includes('image') ? 'Images' : 'Text only', model.reasoning ? 'Reasoning' : ''].filter(Boolean).join(' · ') : '';
+       $('model-details').textContent = details;
+-      $('model-status').textContent = loading ? 'Loading Pi’s configured models…' : operation ? 'Changing this session’s model…' : accepted ? 'Change accepted. Waiting for Pi’s state to confirm the active model.' : error ? message : reason || message || (data?.models.length ? 'Configured models only. Availability does not check whether a provider or local server is online.' : 'No available models. Configure a provider and authentication in Pi, then refresh.');
++      $('model-status').textContent = loading ? 'Loading Pi’s configured models…' : operation ? 'Changing this session’s model…' : accepted ? 'Change accepted. Waiting for Pi’s state to confirm the active model.' : error ? message : reason || message || (data?.refreshDeferred ? 'Pi is busy. This cached model list will refresh when the current task finishes.' : '') || (data?.models.length ? 'Configured models only. Availability does not check whether a provider or local server is online.' : 'No available models. Configure a provider and authentication in Pi, then refresh.');
+       $('model-status').classList.toggle('error', error);
+     }
+     function sync() {
+@@ -97,7 +97,7 @@
+         renderChoices();
+       }
+       render();
+-      if ($('settings-dialog').open && state()?.modelSwitchingSupported && !data && !loading && !loadFailed && capture.handle && !blockedReason()) void load();
++      if ($('settings-dialog').open && state()?.modelSwitchingSupported && (!data || data.refreshDeferred) && !loading && !loadFailed && capture.handle && !blockedReason()) void load();
+     }
+     async function load() {
+       syncIdentityOnly();
+diff --git a/test/app.test.mjs b/test/app.test.mjs
+index 2a5c1f0..48cc5e8 100644
+--- a/test/app.test.mjs
++++ b/test/app.test.mjs
+@@ -1758,6 +1758,49 @@ test('model picker uses the registry, filters generically, and preserves drafts/
+   assert.match(h.el('model-status').textContent, /Using custom-local/);
+ });
+ 
++test('a cached model list loaded while busy refreshes automatically once Pi becomes idle', async () => {
++  const h = await setup(); let calls = 0;
++  h.state.busy = true;
++  await vm.runInContext('poll()', h.context);
++  h.network.models = () => {
++    calls++;
++    return Response.json({ sessionId: h.state.sessionId, current: h.state.modelSelection,
++      models: calls === 1 ? [h.models[0]] : h.models, ...(calls === 1 ? { refreshDeferred: true } : {}) });
++  };
++  await openModels(h);
++  assert.equal(calls, 1);
++  assert.equal(h.el('model-choice').children.length, 1);
++  h.state.busy = false;
++  await vm.runInContext('poll()', h.context); await flush(); await flush();
++  assert.equal(calls, 2);
++  assert.equal(h.el('model-choice').children.length, 2);
++  chooseModel(h);
++  assert.equal(h.el('model-apply').disabled, false);
++  assert.equal(h.requests.some((entry) => entry.path === '/api/model'), false);
++});
++
++test('a failed deferred model refresh does not retry on every state poll and recovers on explicit refresh', async () => {
++  const h = await setup(); let calls = 0;
++  h.state.busy = true;
++  await vm.runInContext('poll()', h.context);
++  h.network.models = () => {
++    calls++;
++    return calls === 1 ? Response.json({ sessionId: h.state.sessionId, current: h.state.modelSelection, models: [h.models[0]], refreshDeferred: true })
++      : Response.json({ error: 'Check models.json in Termux' }, { status: 502 });
++  };
++  await openModels(h);
++  h.state.busy = false;
++  await vm.runInContext('poll()', h.context); await flush(); await flush();
++  assert.equal(calls, 2);
++  assert.match(h.el('model-status').textContent, /Check models.json/);
++  await vm.runInContext('poll()', h.context); await flush();
++  assert.equal(calls, 2, 'An invalid config must not cause a polling retry loop');
++  h.network.models = () => { calls++; return Response.json({ sessionId: h.state.sessionId, current: h.state.modelSelection, models: h.models }); };
++  h.el('model-refresh').click(); await flush(); await flush();
++  assert.equal(calls, 3);
++  assert.equal(h.el('model-choice').children.length, 2);
++});
++
+ test('model picker confirmation cancellation, busy/queued tasks, recording and image preparation never POST', async () => {
+   const cancelled = await setup({ confirmed: false }); await openModels(cancelled); chooseModel(cancelled);
+   cancelled.el('model-apply').click(); await flush();
+diff --git a/test/bridge.test.mjs b/test/bridge.test.mjs
+index 36bee5d..d7b13ee 100644
+--- a/test/bridge.test.mjs
++++ b/test/bridge.test.mjs
+@@ -380,7 +380,7 @@ test('model routes are explicit, session-scoped and reject unsupported workers o
+   assert.equal((await missing.request('/api/model', { sessionId: 'session-1' })).status, 501);
+   const calls = [];
+   const list = { sessionId: 'session-1', current: { provider: 'a', id: 'one' }, models: [] };
+-  const h = await setup(t, { getModels: () => list, onModel: (body) => { calls.push(body); return { ok: true }; } });
++  const h = await setup(t, { getModels: async () => { await Promise.resolve(); return list; }, onModel: (body) => { calls.push(body); return { ok: true }; } });
+   assert.deepEqual(await (await h.request('/api/models')).json(), list);
+   for (const body of [null, [], {}, { sessionId: 5 }]) assert.equal((await h.request('/api/model', body)).status, 400);
+   assert.equal((await h.request('/api/model', { sessionId: 'stale' })).status, 409);
+diff --git a/test/integration.mjs b/test/integration.mjs
+index 167cbdf..484b02c 100644
+--- a/test/integration.mjs
++++ b/test/integration.mjs
+@@ -2,7 +2,7 @@
+ // before any provider call; this never uses API credit or a real Android lock.
+ import assert from 'node:assert/strict';
+ import { spawn } from 'node:child_process';
+-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
++import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+ import { homedir, tmpdir } from 'node:os';
+ import { join } from 'node:path';
+ import { fileURLToPath } from 'node:url';
+@@ -10,6 +10,10 @@ import { configureTestModels } from './fixtures/test-models.mjs';
+ 
+ const directory = await mkdtemp(join(tmpdir(), 'pi-voice-integration-'));
+ await configureTestModels(directory);
++// Termux now defaults to awake on cold start. Tests explicitly opt out in
++// their isolated state so verification never acquires a real device lock.
++await mkdir(join(directory, 'voice'), { recursive: true, mode: 0o700 });
++await writeFile(join(directory, 'voice', 'wake-settings.json'), JSON.stringify({ enabled: false }), { mode: 0o600 });
+ const executable = process.env.PI_VOICE_TEST_PI || join(homedir(), '.pi/agent/bin/pi');
+ const extension = process.env.PI_VOICE_TEST_EXTENSION || join(homedir(), '.pi/agent/extensions/pi-voice.ts');
+ const child = spawn(executable, [
+@@ -96,6 +100,20 @@ try {
+   assert.equal(state.modelSwitchingSupported, true);
+   const settingsBefore = await readFile(join(directory, 'settings.json'), 'utf8').catch(() => null);
+   const configBefore = await readFile(join(directory, 'models.json'), 'utf8');
++  // Providers/models added after Pi starts must be discoverable without a
++  // runtime reload, a new conversation, or a remote model-discovery request.
++  const updatedConfig = JSON.parse(configBefore);
++  updatedConfig.providers['pi-voice-test'].models.push({
++    ...updatedConfig.providers['pi-voice-test'].models[0], id: 'added-after-start', name: 'Added after startup',
++  });
++  await writeFile(join(directory, 'models.json'), JSON.stringify(updatedConfig), { mode: 0o600 });
++  const refreshed = await (await fetch(`${endpoint.origin}/api/models`, { headers })).json();
++  assert.ok(refreshed.models.some((model) => model.provider === 'pi-voice-test' && model.id === 'added-after-start'));
++  assert.deepEqual(refreshed.current, listed.current);
++  assert.equal(refreshed.sessionId, state.sessionId);
++  await writeFile(join(directory, 'models.json'), configBefore, { mode: 0o600 });
++  const removed = await (await fetch(`${endpoint.origin}/api/models`, { headers })).json();
++  assert.ok(!removed.models.some((model) => model.id === 'added-after-start'));
+   let expectedModel = listed.current;
+   for (const id of ['text', 'vision']) {
+     const result = await fetch(`${endpoint.origin}/api/model`, { method: 'POST', headers,
+diff --git a/test/models.test.mjs b/test/models.test.mjs
+index ebb3d66..2132313 100644
+--- a/test/models.test.mjs
++++ b/test/models.test.mjs
+@@ -16,11 +16,11 @@ function setup() {
+   return { first, next, ctx, pi, calls, controller, body, session: (id) => { sessionId = id; } };
+ }
+ 
+-test('registry responses expose an allowlist, deduplicate provider/id and retain generic model IDs', () => {
++test('registry responses expose an allowlist, deduplicate provider/id and retain generic model IDs', async () => {
+   const h = setup();
+   h.first.baseUrl = 'http://secret-server'; h.first.headers = { Authorization: 'secret' }; h.first.apiKey = 'secret';
+   h.ctx.modelRegistry.getAvailable = () => [h.first, h.next, h.first, { provider: 'bad', id: '\nbad' }];
+-  const list = h.controller.list();
++  const list = await h.controller.list();
+   assert.equal(list.models.length, 2);
+   assert.equal(list.contextTokens, 7000);
+   assert.equal(JSON.stringify(list).includes('secret'), false);
+@@ -37,7 +37,7 @@ test('selection passes the canonical registry object to Pi without persistence o
+   assert.equal(h.calls[0].length, 1, 'Never opt into persisting the default');
+   assert.equal(h.calls[0][0], h.next);
+   assert.equal(h.controller.switching, false);
+-  assert.equal(h.controller.list().current.id, h.next.id);
++  assert.equal((await h.controller.list()).current.id, h.next.id);
+ });
+ 
+ test('stale conversations, external model changes and unavailable choices are rejected without mutation', async () => {
+@@ -109,9 +109,91 @@ test('session changes while Pi authenticates are detected and selecting the curr
+ test('old Pi API and broken registries fail clearly without leaking configuration', async () => {
+   const h = setup();
+   h.ctx.modelRegistry.getAvailable = () => { throw new Error('private baseUrl'); };
+-  assert.throws(() => h.controller.list(), (error) => error.status === 502 && !error.message.includes('baseUrl'));
++  await assert.rejects(h.controller.list(), (error) => error.status === 502 && !error.message.includes('baseUrl'));
+   delete h.pi.setModel;
+   assert.equal(h.controller.supported(), false);
+-  assert.throws(() => h.controller.list(), (error) => error.status === 501);
++  await assert.rejects(h.controller.list(), (error) => error.status === 501);
+   await assert.rejects(h.controller.select(h.body()), (error) => error.status === 501);
+ });
++
++test('listing awaits local registry refresh and discovers models added after startup without changing the active model', async () => {
++  const h = setup(); let available = [h.first]; let calls = 0;
++  h.ctx.modelRegistry.getAvailable = () => available;
++  h.ctx.modelRegistry.refresh = async (options) => {
++    assert.equal(options.allowNetwork, false);
++    assert.ok(options.signal instanceof AbortSignal);
++    await Promise.resolve(); calls++; available = [h.first, h.next];
++  };
++  const list = await h.controller.list();
++  assert.equal(calls, 1);
++  assert.ok(list.models.some((model) => model.id === h.next.id));
++  assert.deepEqual(list.current, { provider: h.first.provider, id: h.first.id });
++  assert.equal(list.refreshDeferred, undefined);
++  assert.equal(h.calls.length, 0);
++  assert.equal(h.controller.switching, false);
++});
++
++test('concurrent listings share a refresh and model changes are excluded until it finishes', async () => {
++  const h = setup(); let finish; let calls = 0;
++  h.ctx.modelRegistry.refresh = () => new Promise((resolve) => { calls++; finish = resolve; });
++  const first = h.controller.list(); const second = h.controller.list();
++  await Promise.resolve();
++  assert.equal(calls, 1);
++  assert.equal(h.controller.switching, true);
++  await assert.rejects(h.controller.select(h.body()), (error) => error.status === 409);
++  assert.equal(h.calls.length, 0);
++  finish();
++  assert.deepEqual(await first, await second);
++  assert.equal(h.controller.switching, false);
++});
++
++test('busy, queued and closing sessions return cached lists and defer registry refresh until idle', async () => {
++  for (const flag of ['busy', 'pending', 'closing']) {
++    const h = setup(); let calls = 0; let closing = flag === 'closing';
++    h.ctx.modelRegistry.refresh = async () => { calls++; };
++    if (flag === 'busy') h.ctx.isIdle = () => false;
++    if (flag === 'pending') h.ctx.hasPendingMessages = () => true;
++    const controller = createModelSelection({ pi: h.pi, getContext: () => h.ctx, blocked: () => closing });
++    const list = await controller.list();
++    assert.equal(list.refreshDeferred, true);
++    assert.equal(calls, 0);
++    assert.equal(controller.switching, false);
++    h.ctx.isIdle = () => true; h.ctx.hasPendingMessages = () => false; closing = false;
++    assert.equal((await controller.list()).refreshDeferred, undefined);
++    assert.equal(calls, 1);
++  }
++});
++
++test('listing during provider authentication never reloads its registry', async () => {
++  const h = setup(); let finish; let refreshes = 0;
++  h.ctx.modelRegistry.refresh = async () => { refreshes++; };
++  h.pi.setModel = (model) => new Promise((resolve) => { finish = () => { h.ctx.model = model; resolve(true); }; });
++  const selection = h.controller.select(h.body());
++  assert.equal((await h.controller.list()).refreshDeferred, true);
++  assert.equal(refreshes, 0);
++  finish(); await selection;
++  assert.equal(h.controller.switching, false);
++});
++
++test('refresh failures are sanitized and release the input guard so later refreshes can recover', async () => {
++  for (const failure of ['throw', 'config', 'aborted']) {
++    const h = setup();
++    h.ctx.modelRegistry.refresh = async () => {
++      if (failure === 'throw') throw new Error('secret-token in private config');
++      return { aborted: failure === 'aborted' };
++    };
++    if (failure === 'config') h.ctx.modelRegistry.getError = () => 'secret-token in private config';
++    await assert.rejects(h.controller.list(), (error) => error.status === 502 && !error.message.includes('secret-token'));
++    assert.equal(h.controller.switching, false);
++    h.ctx.modelRegistry.refresh = async () => undefined;
++    delete h.ctx.modelRegistry.getError;
++    assert.equal((await h.controller.list()).models.length, 2);
++  }
++});
++
++test('a conversation replacement during async refresh invalidates the returned list', async () => {
++  const h = setup();
++  h.ctx.modelRegistry.refresh = async () => { h.session('replacement-session'); };
++  await assert.rejects(h.controller.list(), (error) => error.status === 409);
++  assert.equal(h.controller.switching, false);
++});

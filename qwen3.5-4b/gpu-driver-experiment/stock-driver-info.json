@@ -1,0 +1,10 @@
+[
+  {
+    "device": "Adreno (TM) 840",
+    "driverName": "Qualcomm Technologies Inc. Adreno Vulkan Driver",
+    "driverInfo": "Driver Build: bd918c8d8b, Id7378d798a, 1781154747\nDate: 06/11/26\nCompiler Version: E031.50.19.31\nDriver Branch: \n",
+    "driverID": 8,
+    "driverVersionRaw": 2150932526,
+    "apiVersion": "1.4.295"
+  }
+]

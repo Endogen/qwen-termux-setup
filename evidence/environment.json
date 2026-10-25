@@ -1,0 +1,38 @@
+{
+  "device": {
+    "manufacturer": "OnePlus",
+    "model": "CPH2747 / OnePlus 15",
+    "soc": "SM8850",
+    "gpu": "Adreno 840",
+    "android": "16",
+    "architecture": "aarch64",
+    "physicalMemoryGiB": 16
+  },
+  "piVersion": "1.4.0",
+  "llamaCppTermuxVersion": "0.7.0",
+  "llamaCppBuildIdentity": "build 0 / commit unknown",
+  "personalPackages": [
+    {
+      "name": "pi-mcp-adapter",
+      "version": "6.0.0"
+    },
+    {
+      "name": "billion-context",
+      "version": "0.1.208"
+    },
+    {
+      "name": "pi-web-access",
+      "version": "0.44.0"
+    },
+    {
+      "name": "pi-subagents",
+      "version": "0.82.1"
+    }
+  ],
+  "piVoice": {
+    "repository": "https://github.com/Endogen/pi-voice",
+    "baseCommit": "02dae0c432716f71cc4cb2740420afcbc213f6bb",
+    "additionalPatch": "integration/pi-voice-local-registry-refresh.patch"
+  },
+  "noCredentialsOrGlobalCloudDefaultsIncluded": true
+}

@@ -1,0 +1,24 @@
+{
+  "architecture": "aarch64",
+  "releaseRepository": "Endogen/qwen-termux-setup",
+  "releaseTag": "v0.1.0",
+  "packages": [
+    {
+      "package": "llama-cpp",
+      "version": "0.7.0",
+      "archive": "llama-cpp_0.7.0_aarch64.deb",
+      "sha256": "cdad47092ee9eb519c51f7367f1b0e8d76ba10cf3201bbecbcb38e21f67f420d",
+      "downloadUrl": "https://packages.termux.dev/apt/termux-main/pool/main/l/llama-cpp/llama-cpp_0.7.0_aarch64.deb",
+      "size": 7136308
+    },
+    {
+      "package": "llama-cpp-backend-vulkan",
+      "version": "0.7.0",
+      "archive": "llama-cpp-backend-vulkan_0.7.0_aarch64.deb",
+      "sha256": "df315cf92013d10611705e08c56a20a1336b5be58fb55526137702b29ff36eb1",
+      "downloadUrl": "https://packages.termux.dev/apt/termux-main/pool/main/l/llama-cpp-backend-vulkan/llama-cpp-backend-vulkan_0.7.0_aarch64.deb",
+      "size": 2452856
+    }
+  ],
+  "dependencies": "Resolve libandroid-spawn, libc++, and libcurl through Termux APT when restoring; these archives are not automatically installed"
+}

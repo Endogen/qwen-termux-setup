@@ -1,0 +1,12 @@
+{
+  "profiles": [
+    {
+      "name": "Compact local coding",
+      "models": [
+        { "provider": "local-llama", "id": "qwen3.5-4b" }
+      ],
+      "tools": ["read", "bash", "edit", "write"],
+      "thinking": "off"
+    }
+  ]
+}

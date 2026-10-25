@@ -1,0 +1,49 @@
+{
+  "source": "Official configured Termux APT repository; archives downloaded and extracted only",
+  "packages": [
+    {
+      "archive": "libdrm_2.4.134_aarch64.deb",
+      "fields": "Package: libdrm\nVersion: 2.4.134",
+      "sha256": "0cbe82140cf325c15473fbf53a3711fc7a2fb88e36a3eea58a3267c461ab4a17",
+      "installedGlobally": false
+    },
+    {
+      "archive": "libxshmfence_1.3.3-1_aarch64.deb",
+      "fields": "Package: libxshmfence\nVersion: 1.3.3-1",
+      "sha256": "7644c2969c2ce4d763785bd2a85eb32ccf8e5ad40228cd92b193f7edb6398d92",
+      "installedGlobally": false
+    },
+    {
+      "archive": "mesa-vulkan-icd-freedreno_26.2.5_aarch64.deb",
+      "fields": "Package: mesa-vulkan-icd-freedreno\nVersion: 26.2.5",
+      "sha256": "79d4328e41b3b40edea91088c7992f5522469c682e44223efb69ef0861903c37",
+      "installedGlobally": false
+    },
+    {
+      "archive": "vulkan-loader-generic_1.4.366_aarch64.deb",
+      "fields": "Package: vulkan-loader-generic\nVersion: 1.4.366",
+      "sha256": "5b0a17efdd27e064c06dcf5befba4b466eac6025110ecc44be768019b00abdb7",
+      "installedGlobally": false
+    }
+  ],
+  "stockDriver": [
+    {
+      "device": "Adreno (TM) 840",
+      "driverName": "Qualcomm Technologies Inc. Adreno Vulkan Driver",
+      "driverInfo": "Driver Build: bd918c8d8b, Id7378d798a, 1781154747\nDate: 06/11/26\nCompiler Version: E031.50.19.31\nDriver Branch: \n",
+      "driverID": 8,
+      "driverVersionRaw": 2150932526,
+      "apiVersion": "1.4.295"
+    }
+  ],
+  "alternativeDriver": [
+    {
+      "device": "Adreno (TM) 840",
+      "driverName": "turnip Mesa driver",
+      "driverInfo": "Mesa 26.2.5",
+      "driverID": 18,
+      "driverVersionRaw": 109060101,
+      "apiVersion": "1.4.354"
+    }
+  ]
+}

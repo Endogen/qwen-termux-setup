@@ -1,0 +1,32 @@
+{
+  "architecture": "aarch64",
+  "termuxPrefix": "/data/data/com.termux/files/usr",
+  "releaseRepository": "Endogen/qwen-termux-setup",
+  "releaseTag": "v0.1.0",
+  "packages": [
+    {
+      "package": "libdrm",
+      "version": "2.4.134",
+      "archive": "libdrm_2.4.134_aarch64.deb",
+      "sha256": "0cbe82140cf325c15473fbf53a3711fc7a2fb88e36a3eea58a3267c461ab4a17"
+    },
+    {
+      "package": "libxshmfence",
+      "version": "1.3.3-1",
+      "archive": "libxshmfence_1.3.3-1_aarch64.deb",
+      "sha256": "7644c2969c2ce4d763785bd2a85eb32ccf8e5ad40228cd92b193f7edb6398d92"
+    },
+    {
+      "package": "mesa-vulkan-icd-freedreno",
+      "version": "26.2.5",
+      "archive": "mesa-vulkan-icd-freedreno_26.2.5_aarch64.deb",
+      "sha256": "79d4328e41b3b40edea91088c7992f5522469c682e44223efb69ef0861903c37"
+    },
+    {
+      "package": "vulkan-loader-generic",
+      "version": "1.4.366",
+      "archive": "vulkan-loader-generic_1.4.366_aarch64.deb",
+      "sha256": "5b0a17efdd27e064c06dcf5befba4b466eac6025110ecc44be768019b00abdb7"
+    }
+  ]
+}

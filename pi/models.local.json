@@ -1,0 +1,51 @@
+{
+  "providers": {
+    "local-llama": {
+      "name": "Local llama.cpp",
+      "baseUrl": "http://127.0.0.1:8081/v1",
+      "api": "openai-completions",
+      "apiKey": "local-only",
+      "models": [
+        {
+          "id": "qwen3.5-4b",
+          "name": "Qwen3.5 4B Q5_K_M (local GPU)",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 8192,
+          "maxTokens": 2048,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "samplingParams": {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0,
+            "presence_penalty": 1.5,
+            "repeat_penalty": 1.0
+          },
+          "samplingParamsByThinkingLevel": {
+            "off": {
+              "temperature": 0.2,
+              "top_p": 0.8,
+              "presence_penalty": 0
+            }
+          },
+          "compat": {
+            "supportsStore": false,
+            "supportsDeveloperRole": false,
+            "supportsReasoningEffort": false,
+            "maxTokensField": "max_tokens",
+            "thinkingFormat": "qwen-chat-template",
+            "thinkingTokenBudgetField": "thinking_budget_tokens"
+          }
+        }
+      ]
+    }
+  }
+}

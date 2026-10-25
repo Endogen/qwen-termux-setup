@@ -1,0 +1,43 @@
+# Model weights, runtime binaries, and extracted driver trees
+*.gguf
+*.gguf.*
+*.safetensors
+*.bin
+*.deb
+*.so
+*.so.*
+qwen3.5-4b/gpu-driver-experiment/extracted/
+qwen3.5-4b/gpu-driver-experiment/extracted.previous.*/
+qwen3.5-4b/gpu-driver-experiment/.prepare-*/
+qwen3.5-4b/gpu-driver-experiment/debs/
+qwen3.5-4b/runtime-packages/
+qwen3.5-4b/gpu-driver-experiment/turnip.json
+
+# Raw prompts, streams, session identity, runtime state and configuration backups
+**/logs/
+*.log
+*.jsonl
+qwen3.5-4b/validation-*.json
+qwen3.5-4b/runtime-*.json
+qwen3.5-4b/models-before-*.json
+qwen3.5-4b/preparation-status.json
+qwen3.5-4b/gpu-driver-experiment/devices.log
+backups/
+**/.local-qwen-backups/
+.env
+.env.*
+!.env.example
+auth.json
+token
+hosts.yml
+*.keystore
+*.jks
+*.apk
+*.pem
+*.key
+
+# Generated files
+__pycache__/
+*.py[cod]
+node_modules/
+.DS_Store

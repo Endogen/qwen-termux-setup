@@ -1,0 +1,10 @@
+[
+  {
+    "device": "Adreno (TM) 840",
+    "driverName": "turnip Mesa driver",
+    "driverInfo": "Mesa 26.2.5",
+    "driverID": 18,
+    "driverVersionRaw": 109060101,
+    "apiVersion": "1.4.354"
+  }
+]

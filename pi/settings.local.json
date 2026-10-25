@@ -1,0 +1,10 @@
+{
+  "compaction": {
+    "modelOverrides": {
+      "local-llama/qwen3.5-4b": {
+        "reserveTokens": 2048,
+        "keepRecentTokens": 2048
+      }
+    }
+  }
+}
