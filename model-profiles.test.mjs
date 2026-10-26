@@ -91,3 +91,66 @@ test('diagnostic failures cannot interrupt a turn', () => {
   assert.doesNotThrow(() => h.run('session_start'));
   assert.deepEqual(h.pi.getActiveTools(), core);
 });
+
+const schema = (name) => ({ type: 'function', function: { name, description: `Use ${name}`,
+  parameters: { type: 'object', properties: { path: { type: 'string' } } } } });
+function stableFixture() {
+  return fixture({ ...local, api: 'openai-completions' }, {
+    profiles: [{ ...config().profiles[0], stableToolSchemas: true }],
+  });
+}
+
+test('late loader activation cannot alter outgoing schemas or their configured order', () => {
+  const h = stableFixture(); h.run('session_start'); h.run('before_agent_start');
+  // Simulate an extension running later in before_agent_start.
+  h.pi.setActiveTools([...core, 'subagents_enable']);
+  const payload = { tools: ['subagents_enable', ...core.toReversed()].map(schema),
+    messages: [{ role: 'system', content: 'Keep all user instructions' }, { role: 'user', content: 'Hello' }],
+    temperature: 0.2, tool_choice: 'auto', chat_template_kwargs: { enable_thinking: false } };
+  const original = structuredClone(payload);
+  const first = h.run('before_provider_request', { payload });
+  assert.deepEqual(first.tools.map((tool) => tool.function.name), core);
+  assert.deepEqual(first.messages, original.messages);
+  assert.equal(first.temperature, 0.2);
+  assert.deepEqual(first.chat_template_kwargs, original.chat_template_kwargs);
+  assert.deepEqual(payload, original, 'Do not mutate the prior hook payload');
+  const followup = h.run('before_provider_request', { payload: { ...payload, tools: core.map(schema) } });
+  assert.deepEqual(first.tools, followup.tools);
+  assert.equal(h.reports.at(-1).request.toolsChanged, false);
+  assert.equal(h.reports.at(-1).request.systemChanged, false);
+});
+
+test('schema guard respects tool-free requests, missing tools, and legitimate schema changes', () => {
+  const h = stableFixture(); h.run('session_start');
+  const payload = { messages: [{ role: 'system', content: 'Instructions' }], tools: core.map(schema) };
+  h.run('before_provider_request', { payload });
+  const changed = structuredClone(payload);
+  changed.tools[0].function.description = 'Updated read semantics';
+  changed.messages[0].content = 'Updated instructions';
+  assert.deepEqual(h.run('before_provider_request', { payload: changed }), changed);
+  assert.equal(h.reports.at(-1).request.toolsChanged, true);
+  assert.equal(h.reports.at(-1).request.systemChanged, true);
+  assert.ok(!JSON.stringify(h.reports).includes('Updated instructions'));
+  assert.deepEqual(h.run('before_provider_request', { payload: { ...payload, tools: [schema('read')] } }).tools, [schema('read')]);
+  assert.deepEqual(h.run('before_provider_request', { payload: { ...payload, tools: [] } }).tools, []);
+  assert.equal(h.run('before_provider_request', { payload: { messages: [] } }), undefined);
+});
+
+test('schema stabilization is explicit, API-specific, and resets on model changes and reload', () => {
+  const payload = { messages: [], tools: full.map(schema) };
+  const h = stableFixture(); h.run('session_start');
+  h.run('before_provider_request', { payload });
+  h.run('session_shutdown'); h.run('session_start');
+  h.run('before_provider_request', { payload });
+  assert.equal(h.reports.at(-1).request.toolsChanged, null);
+  h.ctx.model = cloud;
+  assert.equal(h.run('before_provider_request', { payload }), undefined);
+  h.run('model_select');
+  h.ctx.model = { ...local, api: 'anthropic-messages' };
+  assert.equal(h.run('before_provider_request', { payload }), undefined);
+  const unconfigured = fixture({ ...local, api: 'openai-completions' });
+  assert.equal(unconfigured.run('before_provider_request', { payload }), undefined);
+  h.ctx.model.api = 'openai-completions';
+  assert.equal(h.run('before_provider_request', { payload: { ...payload, tools: [{ type: 'custom' }] } }), undefined);
+  assert.throws(() => validateProfiles({ profiles: [{ ...config().profiles[0], stableToolSchemas: 'yes' }] }));
+});

@@ -6,6 +6,7 @@
         { "provider": "local-llama", "id": "qwen3.5-4b" }
       ],
       "tools": ["read", "bash", "edit", "write"],
+      "stableToolSchemas": true,
       "thinking": "off"
     }
   ]

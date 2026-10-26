@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$ROOT/Qwen3.5-4B-Q5_K_M.gguf"
 EXPECTED_SIZE=3143656608
-if [[ ! -f "$MODEL" || $(stat -c %s "$MODEL") != "$EXPECTED_SIZE" ]]; then
+if [[ ! -f "$MODEL" || $(stat -c %s "$MODEL" 2>/dev/null || stat -f %z "$MODEL") != "$EXPECTED_SIZE" ]]; then
     printf 'Model is missing or incomplete: %s\n' "$MODEL" >&2
     exit 1
 fi
@@ -51,16 +51,27 @@ esac
 printf 'Qwen3.5-4B Q5_K_M | backend: %s | context: %s\n' "$BACKEND" "${QWEN_CONTEXT:-8192}"
 printf 'API: http://127.0.0.1:%s/v1 | model ID: qwen3.5-4b\n' "${QWEN_PORT:-8081}"
 printf 'This does not connect to Pi. Stop with Ctrl+C.\n'
+# Keep the validated defaults. Tune one dimension at a time with GPU benchmarks.
+for value in "${QWEN_BATCH:-512}" "${QWEN_UBATCH:-128}" "${QWEN_THREADS:-6}" "${QWEN_THREADS_BATCH:-${QWEN_THREADS:-6}}"; do
+    if [[ ! "$value" =~ ^[1-9][0-9]*$ || ${#value} -gt 6 ]]; then
+        printf 'Batch sizes and thread counts must be positive integers (at most six digits).\n' >&2
+        exit 1
+    fi
+done
+if (( ${QWEN_UBATCH:-128} > ${QWEN_BATCH:-512} )); then
+    printf 'QWEN_UBATCH must not exceed QWEN_BATCH.\n' >&2
+    exit 1
+fi
 exec llama-server \
     --model "$MODEL" --alias qwen3.5-4b \
     --host 127.0.0.1 --port "${QWEN_PORT:-8081}" \
     --cors-origins localhost --no-agent \
     --ctx-size "${QWEN_CONTEXT:-8192}" --parallel 1 \
-    --batch-size 512 --ubatch-size 128 \
-    --threads "${QWEN_THREADS:-6}" --threads-batch "${QWEN_THREADS:-6}" \
+    --batch-size "${QWEN_BATCH:-512}" --ubatch-size "${QWEN_UBATCH:-128}" \
+    --threads "${QWEN_THREADS:-6}" --threads-batch "${QWEN_THREADS_BATCH:-${QWEN_THREADS:-6}}" \
     "${DEVICE[@]}" --fit off --flash-attn "$FLASH_ATTN" \
     --no-context-shift --jinja \
     --reasoning "${QWEN_REASONING:-auto}" --reasoning-format deepseek \
     --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0 \
     --presence-penalty 1.5 --repeat-penalty 1.0 \
-    --n-predict 2048 "${BACKEND_ARGS[@]}" "$@"
+    --n-predict 2048 ${BACKEND_ARGS[@]+"${BACKEND_ARGS[@]}"} "$@"

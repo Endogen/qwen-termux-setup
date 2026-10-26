@@ -65,6 +65,14 @@ async function turn(label, text, expected) {
   const assistant = messages.filter((m) => m.role === 'assistant').at(-1);
   report.tests[label] = { status: 'PASS', seconds: (Date.now() - started) / 1000,
     reply: reply.text, usage: assistant?.usage };
+  // Hashes only: no prompt contents. This is the profile hook's observation;
+  // another extension later in provider-hook order can still rewrite payloads.
+  const profileState = JSON.parse(await readFile(join(voice, `model-profile-${worker.pid}.json`), 'utf8'));
+  report.tests[label].profileRequest = profileState.request ?? null;
+  if (label === 'warm_chat' && process.env.QWEN_REQUIRE_WARM_CACHE === '1') {
+    assert.ok(assistant?.usage?.cacheRead > 0,
+      'First follow-up did not reuse cached input; inspect prompt/schema hashes and server checkpoints');
+  }
   console.log(`PASS ${label}: ${JSON.stringify(report.tests[label])}`);
   return messages;
 }

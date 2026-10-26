@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 
 const THINKING = new Set(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 const key = (model) => JSON.stringify([model?.provider, model?.id]);
@@ -16,6 +17,7 @@ export function validateProfiles(config) {
       !Array.isArray(profile.tools) || !profile.tools.length ||
       profile.tools.some((name) => typeof name !== 'string' || !name.trim()) ||
       new Set(profile.tools).size !== profile.tools.length ||
+      (profile.stableToolSchemas !== undefined && typeof profile.stableToolSchemas !== 'boolean') ||
       (profile.thinking !== undefined && !THINKING.has(profile.thinking))) {
       throw new Error('Invalid model profile: provide a name, exact models, unique tools, and an optional thinking level');
     }
@@ -36,15 +38,19 @@ export function installModelProfiles(pi, config, report = () => {}) {
   let baseline;
   let saved;
   let activeKey;
+  let previousRequest;
+
+  const profileFor = (model) => profiles.find((item) => item.models.some((match) => key(match) === key(model)));
 
   function sync(event, ctx) {
-    const profile = profiles.find((item) => item.models.some((model) => key(model) === key(ctx.model)));
+    const profile = profileFor(ctx.model);
     if (!profile) {
       if (saved) {
         pi.setActiveTools(saved.tools);
         pi.setThinkingLevel(saved.thinking);
         if (event?.systemPromptOptions) event.systemPromptOptions.selectedTools = [...pi.getActiveTools()];
         saved = undefined; activeKey = undefined;
+        previousRequest = undefined;
         ctx.ui?.setStatus?.('model-profile', undefined);
       }
       baseline = controls();
@@ -55,6 +61,7 @@ export function installModelProfiles(pi, config, report = () => {}) {
     if (missing.length) throw new Error(`Model profile has unavailable tools: ${missing.join(', ')}`);
     if (!saved) saved = baseline || controls();
     const entering = activeKey !== key(ctx.model);
+    if (entering) previousRequest = undefined;
     if (JSON.stringify(pi.getActiveTools()) !== JSON.stringify(profile.tools)) pi.setActiveTools([...profile.tools]);
     if (entering && profile.thinking !== undefined) pi.setThinkingLevel(profile.thinking);
     activeKey = key(ctx.model);
@@ -72,6 +79,35 @@ export function installModelProfiles(pi, config, report = () => {}) {
   pi.on('session_start', sync);
   pi.on('model_select', sync);
   pi.on('before_agent_start', sync);
+  pi.on('before_provider_request', (event, ctx) => {
+    const profile = profileFor(ctx.model);
+    // Serialized payloads differ across provider APIs. Opt in only for the
+    // OpenAI chat-completions shape used by this local provider.
+    if (!profile?.stableToolSchemas || ctx.model?.api !== 'openai-completions') return;
+    const payload = event.payload;
+    if (!payload || !Array.isArray(payload.messages) || !Array.isArray(payload.tools)) return;
+    if (payload.tools.some((tool) => tool?.type !== 'function' || typeof tool.function?.name !== 'string')) return;
+    // Keep current definitions, including intentional schema updates. Never
+    // resurrect missing tools (e.g. a tool-free compaction request).
+    const tools = profile.tools.flatMap((name) => payload.tools.filter((tool) => tool.function.name === name));
+    const result = { ...payload, tools };
+    const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    const current = {
+      toolsHash: hash(tools),
+      systemHash: hash(payload.messages.filter((message) => ['system', 'developer'].includes(message.role))),
+    };
+    try {
+      report({ model: { provider: ctx.model.provider, id: ctx.model.id }, profile: profile.name,
+        tools: tools.map((tool) => tool.function.name), thinking: pi.getThinkingLevel(),
+        request: { ...current,
+          removedTools: payload.tools.filter((tool) => !profile.tools.includes(tool.function.name)).map((tool) => tool.function.name),
+          toolsChanged: previousRequest ? current.toolsHash !== previousRequest.toolsHash : null,
+          systemChanged: previousRequest ? current.systemHash !== previousRequest.systemHash : null },
+      });
+    } catch { /* No raw prompts are logged; diagnostic failures remain harmless. */ }
+    previousRequest = current;
+    return result;
+  });
   pi.on('tool_call', (event, ctx) => {
     const profile = profiles.find((item) => item.models.some((model) => key(model) === key(ctx.model)));
     // Other extensions can activate loader tools after before_agent_start.
@@ -88,7 +124,7 @@ export function installModelProfiles(pi, config, report = () => {}) {
       pi.setActiveTools(saved.tools);
       pi.setThinkingLevel(saved.thinking);
     }
-    saved = undefined; activeKey = undefined; baseline = undefined;
+    saved = undefined; activeKey = undefined; baseline = undefined; previousRequest = undefined;
   });
 }
 

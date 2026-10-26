@@ -83,6 +83,18 @@ class LauncherTests(unittest.TestCase):
         result = self.run_launcher()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('missing or incomplete', result.stderr)
+    def test_gpu_tuning_changes_only_requested_dimensions(self):
+        result = self.successful(QWEN_BATCH='1024', QWEN_UBATCH='256', QWEN_THREADS='4', QWEN_THREADS_BATCH='6')
+        for flag, expected in [('--batch-size', '1024'), ('--ubatch-size', '256'), ('--threads', '4'),
+                ('--threads-batch', '6'), ('--n-gpu-layers', 'all'), ('--flash-attn', 'off'), ('--cache-ram', '0')]:
+            self.assertEqual(self.option(result, flag), expected)
+        self.assertEqual(self.option(self.successful(QWEN_THREADS='3'), '--threads-batch'), '3')
+    def test_invalid_tuning_is_rejected_before_starting_server(self):
+        for env in [{'QWEN_BATCH': '0'}, {'QWEN_UBATCH': '513'}, {'QWEN_THREADS': '-1'},
+                    {'QWEN_THREADS_BATCH': 'x'}, {'QWEN_BATCH': '08'}, {'QWEN_BATCH': '9999999'}]:
+            result = self.run_launcher(**env)
+            self.assertNotEqual(result.returncode, 0, env)
+            self.assertNotIn('"args"', result.stdout)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

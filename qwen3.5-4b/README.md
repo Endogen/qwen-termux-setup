@@ -103,6 +103,12 @@ Other overrides: QWEN_PORT (8081), QWEN_THREADS (6), QWEN_REASONING
 QWEN_CACHE_MB (0) and QWEN_CONTEXT_CHECKPOINTS (4). Additional llama-server arguments can be supplied after the
 script name. These are runtime overrides, not Pi configuration.
 
+GPU tuning also exposes `QWEN_BATCH` (512), `QWEN_UBATCH` (128), and
+`QWEN_THREADS_BATCH` (defaults to `QWEN_THREADS`). Defaults are unchanged.
+See [PERFORMANCE.md](PERFORMANCE.md) for the controlled experiment order,
+cache explanation, and a benchmark that measures first-output latency separately
+from total completion time.
+
 ## Pi integration -- configured and verified
 
 Create a **fresh Pi session** after this configuration was installed, then use
@@ -181,6 +187,14 @@ The extra lazy subagent loader can be advertised on the first request by another
 installed extension, then removed on the next turn by the compact profile. That
 one-time tool-schema change invalidated the prefix cache; do not promise a fast
 first follow-up. Loader calls remain blocked by the compact profile.
+
+The newer `stableToolSchemas` profile option filters serialized OpenAI tool
+declarations to the configured tools in their configured order. It preserves
+their current definitions and all message content. This closes the schema leak
+in the profile hook, but does not remove a loader's system-prompt prose or stop a
+later provider hook from changing the payload. The diagnostic file now includes
+schema/system hashes and change flags. Phone validation of this revision is
+pending; the timings above remain historical measurements, not new results.
 
 The final test used a PID/session-scoped diagnostic guard that allowed only its
 requested fixture reads and no tools for chat. No call was blocked in the passing

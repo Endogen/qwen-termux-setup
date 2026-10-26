@@ -30,6 +30,13 @@ Earlier failures and their mitigation are recorded, not hidden:
 - [GPU investigation and activation](qwen3.5-4b/GPU-INVESTIGATION.md)
 - [Sanitized validation summary](evidence/validation-summary.json)
 - [Exact environment baseline](evidence/environment.json)
+- [GPU latency tuning and cache validation](qwen3.5-4b/PERFORMANCE.md)
+
+Local optimization work (not yet phone-validated): the compact profile now
+filters late-added OpenAI tool schemas before sending and records schema/system
+fingerprints. The launcher exposes batch/ubatch and independent prefill thread
+controls, with the validated defaults retained. A sequential GPU/cache benchmark
+is included. No new speedup is claimed until measured on the OnePlus.
 
 ## What is backed up
 
@@ -147,7 +154,7 @@ runtime/provider/profile changes.
 ## Tests and diagnostics
 
 ```sh
-npm test  # 29 portable profile, launcher, merge/rollback, and archive-safety checks
+npm test  # portable profile, launcher, benchmark-parser, merge/rollback, archive-safety checks
 ```
 
 No model weights, GPU, Pi installation, cloud credits, or network are required for
