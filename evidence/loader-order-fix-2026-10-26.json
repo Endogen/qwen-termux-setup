@@ -1,0 +1,323 @@
+{
+  "date": "2026-10-26",
+  "baseCommit": "884878e",
+  "fix": "Install model profiles as final user package, after loader hooks; migrate old auto-discovered entrypoints.",
+  "runtime": {
+    "pi": "1.4.0",
+    "piSubagents": "0.82.1",
+    "inference": "llama-cpp 0.7.0",
+    "backend": "private Turnip 26.2.5",
+    "model": "Qwen3.5-4B Q5_K_M",
+    "context": 8192,
+    "batch": 512,
+    "microbatch": 128,
+    "threads": 6,
+    "checkpoints": 4,
+    "thinking": "off"
+  },
+  "scope": "Two fresh production app workers; dedicated llama server restarted before each run. Full personal extensions loaded. Strict gate requires cacheRead > 0 and unchanged prompt/schema hashes.",
+  "priorStrictFirstFollowup": {
+    "seconds": [
+      65.669,
+      66.356
+    ],
+    "cachedTokens": [
+      0,
+      0
+    ],
+    "toolsStable": true,
+    "systemStable": false
+  },
+  "runs": [
+    {
+      "status": "PASS",
+      "selectedSessionUnchanged": true,
+      "existingWorkersRetained": true,
+      "globalSettingsUnchanged": true,
+      "diagnosticWorkerClosed": true,
+      "tests": {
+        "cold_chat": {
+          "status": "PASS",
+          "seconds": 65.929,
+          "usage": {
+            "input": 4944,
+            "output": 4,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 4948,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": null,
+            "systemChanged": null
+          }
+        },
+        "warm_chat": {
+          "status": "PASS",
+          "seconds": 3.41,
+          "usage": {
+            "input": 82,
+            "output": 2,
+            "cacheRead": 4940,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5024,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          },
+          "warmCacheAcceptance": "PASS"
+        },
+        "real_read_tool_and_result": {
+          "status": "PASS",
+          "seconds": 9.905,
+          "usage": {
+            "input": 31,
+            "output": 14,
+            "cacheRead": 5171,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5216,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          },
+          "realExecutionVerified": true
+        },
+        "steady_warm_chat": {
+          "status": "PASS",
+          "seconds": 11.02,
+          "usage": {
+            "input": 475,
+            "output": 24,
+            "cacheRead": 4812,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5311,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          }
+        },
+        "second_real_read_tool_and_result": {
+          "status": "PASS",
+          "seconds": 10.976,
+          "usage": {
+            "input": 30,
+            "output": 35,
+            "cacheRead": 5438,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5503,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          },
+          "realExecutionVerified": true
+        }
+      }
+    },
+    {
+      "status": "PASS",
+      "selectedSessionUnchanged": true,
+      "existingWorkersRetained": true,
+      "globalSettingsUnchanged": true,
+      "diagnosticWorkerClosed": true,
+      "tests": {
+        "cold_chat": {
+          "status": "PASS",
+          "seconds": 66.257,
+          "usage": {
+            "input": 4944,
+            "output": 4,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 4948,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": null,
+            "systemChanged": null
+          }
+        },
+        "warm_chat": {
+          "status": "PASS",
+          "seconds": 3.459,
+          "usage": {
+            "input": 82,
+            "output": 2,
+            "cacheRead": 4940,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5024,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          },
+          "warmCacheAcceptance": "PASS"
+        },
+        "real_read_tool_and_result": {
+          "status": "PASS",
+          "seconds": 9.256,
+          "usage": {
+            "input": 29,
+            "output": 12,
+            "cacheRead": 5167,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5208,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          },
+          "realExecutionVerified": true
+        },
+        "steady_warm_chat": {
+          "status": "PASS",
+          "seconds": 11.031,
+          "usage": {
+            "input": 467,
+            "output": 24,
+            "cacheRead": 4812,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5303,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          }
+        },
+        "second_real_read_tool_and_result": {
+          "status": "PASS",
+          "seconds": 11.019,
+          "usage": {
+            "input": 31,
+            "output": 37,
+            "cacheRead": 5426,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 5494,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          },
+          "realExecutionVerified": true
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Bounded arithmetic and real file-read acceptance tests, not broad coding-quality evaluation.",
+    "No claim of cold-start or GPU throughput improvement.",
+    "Keep profile package last when adding other packages; SDK ordering fixture and strict phone gate detect regressions.",
+    "Existing loaded workers require a fresh session process or idle reload; no existing worker was reloaded."
+  ]
+}

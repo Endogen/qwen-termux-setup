@@ -70,8 +70,14 @@ async function turn(label, text, expected) {
   const profileState = JSON.parse(await readFile(join(voice, `model-profile-${worker.pid}.json`), 'utf8'));
   report.tests[label].profileRequest = profileState.request ?? null;
   if (label === 'warm_chat' && process.env.QWEN_REQUIRE_WARM_CACHE === '1') {
-    assert.ok(assistant?.usage?.cacheRead > 0,
+    const request = report.tests[label].profileRequest;
+    const cachePassed = assistant?.usage?.cacheRead > 0;
+    const promptStable = request?.systemChanged === false && request?.toolsChanged === false;
+    report.tests[label].warmCacheAcceptance = cachePassed && promptStable ? 'PASS' : 'FAIL';
+    if (!cachePassed || !promptStable) report.tests[label].status = 'FAIL';
+    assert.ok(cachePassed,
       'First follow-up did not reuse cached input; inspect prompt/schema hashes and server checkpoints');
+    assert.ok(promptStable, 'First follow-up changed system prompt or tool schemas despite cache reuse');
   }
   console.log(`PASS ${label}: ${JSON.stringify(report.tests[label])}`);
   return messages;

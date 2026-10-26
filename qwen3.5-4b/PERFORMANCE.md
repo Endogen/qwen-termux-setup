@@ -1,8 +1,13 @@
 # GPU latency work — 2026-10-26
 
-The OnePlus is not connected during this revision. All new changes are prepared
-and tested on the Mac; Android timings and quality validation remain pending.
-Keep the existing Qwen3.5-4B Q5_K_M weights and private Turnip backend.
+This plan was originally prepared on the Mac. The OnePlus follow-up is now
+recorded in [October 26 results](PERFORMANCE-RESULTS-2026-10-26.md) and
+[sanitized measurements](../evidence/performance-2026-10-26.json). The subsequent
+[loader-order fix](LOADER-ORDER-FIX.md) passes the strict first-follow-up cache gate
+in two fresh-worker runs: **3.41–3.46s**, down from approximately **66s**, with 4,940
+cached tokens and stable system/schema hashes. The 128/256/512 microbatch screening
+found no promotable candidate; keep the existing Qwen3.5-4B Q5_K_M weights, private
+Turnip backend and launcher defaults. Synthetic tool reliability remains unresolved.
 
 ## What the evidence says
 
@@ -45,7 +50,9 @@ profile order. Current definitions are retained, absent tools are not invented,
 and tool-free requests stay tool-free. The normal execution gate is retained.
 Other models and APIs are unchanged. No instructions/history are trimmed.
 
-Limit: this does not fix a loader adding/removing text in the system prompt.
+Schema filtering alone does not fix a loader adding/removing system-prompt text.
+The installer now orders the profile as the final local package so its structured
+prompt selection runs after the loaders; see [deployment constraints](LOADER-ORDER-FIX.md#installation-and-maintenance).
 The profile diagnostic reports `toolsHash`, `systemHash`, `toolsChanged`,
 `systemChanged`, and removed tool names, without raw messages. Hashes describe
 this hook's output; later provider hooks may still change it. A changed system
@@ -90,9 +97,11 @@ python qwen3.5-4b/benchmark-gpu.py --run \
 The benchmark replaces the active prefix cache. It never starts/stops a server,
 executes tools, or contacts Pi. It checks the server is idle and single-slot, but
 cannot reserve it against new app requests: leave the real app idle throughout.
-It runs three repetitions of synthetic cold retrieval, a cached follow-up, a
-longer output, streamed tool arguments plus a **simulated** tool result, a schema
-change, and the next stable follow-up. Any correctness failure fails the run.
+By default it attempts three repetitions of synthetic cold retrieval, a cached
+follow-up, streamed tool arguments plus a **simulated** tool result, a schema
+change, the next stable follow-up, and finally longer repetitive output. Any
+correctness failure stops and fails the run; later cases are not measured.
+Reports retain failed synthetic responses and are written with mode 0600.
 It records time to meaningful output (ignoring role-only SSE frames), time to
 first answer text, elapsed time, usage, and server timings when supplied.
 Missing cache/timing counters are unknown, not zero. Actual prompt length comes
@@ -129,7 +138,7 @@ QWEN_TEST_REPORT="$HOME/local-llm/qwen3.5-4b/validation-stable-cache.json" \
 ```
 
 This runs the existing full personal-resource app sequence and additionally
-requires some cache reuse on the first follow-up. It records profile hash
+requires cache reuse and unchanged system/schema hashes on the first follow-up. It records profile hash
 diagnostics alongside actual model usage. Some reuse is only a minimum gate:
 inspect how much was reused and how much was reevaluated. A no-cache failure is
 useful evidence, not a reason to relax the gate. Raw reports remain ignored.

@@ -19,11 +19,13 @@ It does not change the general app into a Qwen-specific app.
 - Qwen-only compaction reserve/recent budgets of 2,048 tokens each.
 - API `http://127.0.0.1:8081/v1`; model ID `qwen3.5-4b`.
 
-The final full-personal-resource app sequence passed chat, two actual file reads,
-and chat after tool use. Cold/cache-invalidated turns took **76–95 seconds**;
-later cached turns took **10–12 seconds**. A tool-list transition can invalidate
-that first follow-up's cache. This is a focused functional check, **not** proof of
-broad coding accuracy, sustained thermal stability, or frontier-model quality.
+The latest full-personal-resource app sequence passed chat, two actual file reads,
+and chat after tool use in two independent fresh-worker runs. After fixing profile
+load order, cold turns took **about 66 seconds**, first cached follow-ups took
+**3.41–3.46 seconds**, and later tool/chat turns took **9–11 seconds**. Both strict
+cache gates passed with stable system/tool hashes and **4,940 cached tokens**.
+These are focused functional checks, **not** proof of broad coding accuracy,
+sustained thermal stability, or frontier-model quality.
 Earlier failures and their mitigation are recorded, not hidden:
 
 - [Runtime instructions and limitations](qwen3.5-4b/README.md)
@@ -32,11 +34,13 @@ Earlier failures and their mitigation are recorded, not hidden:
 - [Exact environment baseline](evidence/environment.json)
 - [GPU latency tuning and cache validation](qwen3.5-4b/PERFORMANCE.md)
 
-Local optimization work (not yet phone-validated): the compact profile now
-filters late-added OpenAI tool schemas before sending and records schema/system
-fingerprints. The launcher exposes batch/ubatch and independent prefill thread
-controls, with the validated defaults retained. A sequential GPU/cache benchmark
-is included. No new speedup is claimed until measured on the OnePlus.
+[Loader-order fix and acceptance results](qwen3.5-4b/LOADER-ORDER-FIX.md): the profile
+now runs after loader packages, keeping generated tool-list text consistent with
+serialized schemas from the first request. User instructions are not frozen or
+removed. The [earlier GPU screening](qwen3.5-4b/PERFORMANCE-RESULTS-2026-10-26.md)
+found no promotable candidate: microbatches 128/256/512 all failed a synthetic
+reference-table/tool transition. Those reliability failures remain unresolved;
+GPU defaults are unchanged.
 
 ## What is backed up
 
@@ -136,8 +140,11 @@ Android drivers, Pi versions, or quantizations require fresh correctness testing
 
    Existing differing profile extension files require `--replace-extension` after
    review. Conflicting provider/profile ownership is rejected. This tool never
-   copies `auth.json`, rewrites cloud defaults, installs packages, reloads a worker,
-   or starts inference. Use a fresh Pi worker, or reload only an idle one afterward.
+   copies `auth.json`, rewrites cloud defaults, downloads dependencies, reloads a
+   worker, or starts inference. It installs the local profile package as the final
+   `settings.json` package entry and migrates the old auto-loaded profile files
+   with backups. Keep this entry last after adding packages (rerun the installer).
+   Use a fresh Pi worker, or reload only an idle one afterward.
    A custom agent directory is supported with `--agent-dir` / `PI_CODING_AGENT_DIR`.
 7. Start `serve.sh` manually, create a **fresh** app session, then choose
    **Qwen3.5 4B Q5_K_M (local GPU)**. Do not move a long cloud conversation into 8K.
@@ -159,6 +166,10 @@ npm test  # portable profile, launcher, benchmark-parser, merge/rollback, archiv
 
 No model weights, GPU, Pi installation, cloud credits, or network are required for
 those unit tests. CI runs them on Linux; it is not an Android GPU benchmark.
+
+Optional real-Pi lifecycle tests (no model or external network calls):
+`PI_SDK_ROOT=/path/to/@earendil-works/pi-coding-agent npm run test:pi`.
+See [loader-order regression coverage](qwen3.5-4b/LOADER-ORDER-FIX.md#regression-tests).
 
 Inference checks are **manual and opt-in**: `smoke-test.py`, `validate-turnip.py`,
 `verify-pi-voice.mjs`, and `verify-actual-app.mjs`. They consume time/memory and some

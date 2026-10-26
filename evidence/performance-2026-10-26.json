@@ -1,0 +1,675 @@
+{
+  "date": "2026-10-26",
+  "sourceCommit": "884878e",
+  "scope": "OnePlus follow-up screening, not a controlled performance ranking or broad coding evaluation",
+  "runtime": {
+    "packages": "llama-cpp / llama-cpp-backend-vulkan 0.7.0",
+    "backend": "private Mesa Turnip 26.2.5",
+    "model": "Qwen3.5-4B Q5_K_M",
+    "context": 8192,
+    "parallel": 1,
+    "threads": 6,
+    "threadsBatch": 6,
+    "checkpoints": 4,
+    "cacheRamMiB": 0,
+    "fusion": false,
+    "flashAttention": false,
+    "thinking": false,
+    "temperature": 0.2,
+    "topP": 0.8,
+    "presencePenalty": 0
+  },
+  "limitations": [
+    "One repetition per GPU setting; fail-fast tool failure prevented remaining cases.",
+    "Unplugged; battery temperatures are not GPU temperatures. Android thermal status and GPU allocations unavailable.",
+    "Process RSS does not measure total Vulkan/device memory.",
+    "Order, phone activity and throttling were not controlled; no candidate promoted."
+  ],
+  "gpuScreening": [
+    {
+      "label": "baseline-complete",
+      "batch": 512,
+      "ubatch": 128,
+      "status": "FAIL",
+      "error": "Correctness failure in tool_call; do not promote this configuration",
+      "batteryBefore": {
+        "temperature": 34.1,
+        "percentage": 91,
+        "plugged": "UNPLUGGED"
+      },
+      "batteryAfter": {
+        "temperature": 34.3,
+        "percentage": 90,
+        "plugged": "UNPLUGGED"
+      },
+      "peakRssKiB": 1179792,
+      "minimumAvailableKiB": 3063624,
+      "runs": [
+        {
+          "repeat": 1,
+          "case": "cold_prefill",
+          "correct": true,
+          "seconds": 65.49515653698472,
+          "first_output_seconds": 65.0513945579878,
+          "first_text_seconds": 65.0513993499917,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 4920,
+            "total_tokens": 4925,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 4920,
+            "prompt_ms": 65038.35,
+            "prompt_per_token_ms": 13.219176829268292,
+            "prompt_per_second": 75.6476755637251,
+            "predicted_n": 5,
+            "predicted_ms": 443.327,
+            "predicted_per_token_ms": 110.83175,
+            "predicted_per_second": 9.022685286481536
+          }
+        },
+        {
+          "repeat": 1,
+          "case": "warm_followup",
+          "correct": true,
+          "seconds": 2.5318855199730024,
+          "first_output_seconds": 2.073536926996894,
+          "first_text_seconds": 2.073541457997635,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 4957,
+            "total_tokens": 4962,
+            "prompt_tokens_details": {
+              "cached_tokens": 4916
+            }
+          },
+          "timings": {
+            "cache_n": 4916,
+            "prompt_n": 41,
+            "prompt_ms": 2045.037,
+            "prompt_per_token_ms": 49.878951219512196,
+            "prompt_per_second": 20.048537019134617,
+            "predicted_n": 5,
+            "predicted_ms": 457.888,
+            "predicted_per_token_ms": 114.472,
+            "predicted_per_second": 8.735760710042632
+          }
+        },
+        {
+          "repeat": 1,
+          "case": "tool_call",
+          "correct": false,
+          "seconds": 55.53418039600365,
+          "first_output_seconds": 2.1538910410017706,
+          "first_text_seconds": 2.153893645037897,
+          "finish_reason": "length",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 512,
+            "prompt_tokens": 4991,
+            "total_tokens": 5503,
+            "prompt_tokens_details": {
+              "cached_tokens": 4953
+            }
+          },
+          "timings": {
+            "cache_n": 4953,
+            "prompt_n": 38,
+            "prompt_ms": 2124.284,
+            "prompt_per_token_ms": 55.90221052631579,
+            "prompt_per_second": 17.88838027307083,
+            "predicted_n": 512,
+            "predicted_ms": 53378.311,
+            "predicted_per_token_ms": 104.45853424657534,
+            "predicted_per_second": 9.573176640976893
+          }
+        }
+      ],
+      "failureSummary": "Returned table values instead of calling read, exhausted 512 completion tokens; no tool executed."
+    },
+    {
+      "label": "ub256",
+      "batch": 512,
+      "ubatch": 256,
+      "status": "FAIL",
+      "error": "Correctness failure in tool_call; do not promote this configuration",
+      "batteryBefore": {
+        "temperature": 35.3,
+        "percentage": 90,
+        "plugged": "UNPLUGGED"
+      },
+      "batteryAfter": {
+        "temperature": 35.3,
+        "percentage": 89,
+        "plugged": "UNPLUGGED"
+      },
+      "peakRssKiB": 1195164,
+      "minimumAvailableKiB": 3672816,
+      "runs": [
+        {
+          "repeat": 1,
+          "case": "cold_prefill",
+          "correct": true,
+          "seconds": 104.38754006498493,
+          "first_output_seconds": 103.90575647098012,
+          "first_text_seconds": 103.90576480398886,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 4920,
+            "total_tokens": 4925,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 4920,
+            "prompt_ms": 103890.5,
+            "prompt_per_token_ms": 21.115955284552847,
+            "prompt_per_second": 47.35755434808765,
+            "predicted_n": 5,
+            "predicted_ms": 476.045,
+            "predicted_per_token_ms": 119.01125,
+            "predicted_per_second": 8.402566984213678
+          }
+        },
+        {
+          "repeat": 1,
+          "case": "warm_followup",
+          "correct": true,
+          "seconds": 3.3784618219942786,
+          "first_output_seconds": 2.9061213529785164,
+          "first_text_seconds": 2.9061277079745196,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 4957,
+            "total_tokens": 4962,
+            "prompt_tokens_details": {
+              "cached_tokens": 4916
+            }
+          },
+          "timings": {
+            "cache_n": 4916,
+            "prompt_n": 41,
+            "prompt_ms": 2846.85,
+            "prompt_per_token_ms": 69.43536585365854,
+            "prompt_per_second": 14.401882782724766,
+            "predicted_n": 5,
+            "predicted_ms": 470.896,
+            "predicted_per_token_ms": 117.724,
+            "predicted_per_second": 8.49444463320988
+          }
+        },
+        {
+          "repeat": 1,
+          "case": "tool_call",
+          "correct": false,
+          "seconds": 40.21899727603886,
+          "first_output_seconds": 2.1995655720238574,
+          "first_text_seconds": 2.1995707280002534,
+          "finish_reason": "length",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 512,
+            "prompt_tokens": 4991,
+            "total_tokens": 5503,
+            "prompt_tokens_details": {
+              "cached_tokens": 4953
+            }
+          },
+          "timings": {
+            "cache_n": 4953,
+            "prompt_n": 38,
+            "prompt_ms": 2132.537,
+            "prompt_per_token_ms": 56.119394736842104,
+            "prompt_per_second": 17.819151555166453,
+            "predicted_n": 512,
+            "predicted_ms": 38019.98,
+            "predicted_per_token_ms": 74.40309197651663,
+            "predicted_per_second": 13.44030165192091
+          }
+        }
+      ],
+      "failureSummary": "Returned table values instead of calling read, exhausted 512 completion tokens; no tool executed."
+    },
+    {
+      "label": "ub512",
+      "batch": 512,
+      "ubatch": 512,
+      "status": "FAIL",
+      "error": "Correctness failure in tool_call; do not promote this configuration",
+      "batteryBefore": {
+        "temperature": 35.3,
+        "percentage": 89,
+        "plugged": "UNPLUGGED"
+      },
+      "batteryAfter": {
+        "temperature": 35.0,
+        "percentage": 88,
+        "plugged": "UNPLUGGED"
+      },
+      "peakRssKiB": 1225940,
+      "minimumAvailableKiB": 3671692,
+      "runs": [
+        {
+          "repeat": 1,
+          "case": "cold_prefill",
+          "correct": true,
+          "seconds": 62.01601565303281,
+          "first_output_seconds": 61.67990565299988,
+          "first_text_seconds": 61.67991190304747,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 4920,
+            "total_tokens": 4925,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 4920,
+            "prompt_ms": 61654.219,
+            "prompt_per_token_ms": 12.531345325203251,
+            "prompt_per_second": 79.79989171543963,
+            "predicted_n": 5,
+            "predicted_ms": 336.399,
+            "predicted_per_token_ms": 84.09975,
+            "predicted_per_second": 11.890641767662805
+          }
+        },
+        {
+          "repeat": 1,
+          "case": "warm_followup",
+          "correct": true,
+          "seconds": 2.6101450519636273,
+          "first_output_seconds": 2.2856013539712876,
+          "first_text_seconds": 2.2856065100058913,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 4957,
+            "total_tokens": 4962,
+            "prompt_tokens_details": {
+              "cached_tokens": 4916
+            }
+          },
+          "timings": {
+            "cache_n": 4916,
+            "prompt_n": 41,
+            "prompt_ms": 2226.658,
+            "prompt_per_token_ms": 54.30873170731707,
+            "prompt_per_second": 18.413245321014724,
+            "predicted_n": 5,
+            "predicted_ms": 323.171,
+            "predicted_per_token_ms": 80.79275,
+            "predicted_per_second": 12.37734821503167
+          }
+        },
+        {
+          "repeat": 1,
+          "case": "tool_call",
+          "correct": false,
+          "seconds": 55.24347805202706,
+          "first_output_seconds": 2.2544244779855944,
+          "first_text_seconds": 2.2544286450138316,
+          "finish_reason": "length",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 512,
+            "prompt_tokens": 4991,
+            "total_tokens": 5503,
+            "prompt_tokens_details": {
+              "cached_tokens": 4953
+            }
+          },
+          "timings": {
+            "cache_n": 4953,
+            "prompt_n": 38,
+            "prompt_ms": 2188.535,
+            "prompt_per_token_ms": 57.59302631578947,
+            "prompt_per_second": 17.36321329108285,
+            "predicted_n": 512,
+            "predicted_ms": 52987.82,
+            "predicted_per_token_ms": 103.69436399217221,
+            "predicted_per_second": 9.64372567129578
+          }
+        }
+      ],
+      "failureSummary": "Returned table values instead of calling read, exhausted 512 completion tokens; no tool executed."
+    }
+  ],
+  "actualApp": [
+    {
+      "sourceReport": "validation-stable-cache.json",
+      "strictFirstFollowupCacheGate": true,
+      "status": "FAIL",
+      "checks": {
+        "cold_chat": {
+          "answerCorrect": true,
+          "seconds": 65.898,
+          "usage": {
+            "input": 4993,
+            "output": 4,
+            "cacheRead": 0
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "8c3b58e829b834bcc5f3ea52ea3c37c8874321ac739287322cbfc9d3f1725c30",
+            "removedTools": [
+              "subagents_enable"
+            ],
+            "toolsChanged": null,
+            "systemChanged": null
+          }
+        },
+        "warm_chat": {
+          "answerCorrect": true,
+          "seconds": 65.669,
+          "usage": {
+            "input": 5022,
+            "output": 2,
+            "cacheRead": 0
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": true
+          },
+          "cacheAcceptance": "FAIL"
+        }
+      },
+      "diagnosticWorkerClosed": true
+    },
+    {
+      "sourceReport": "validation-stable-cache-capture.json",
+      "strictFirstFollowupCacheGate": true,
+      "status": "FAIL",
+      "checks": {
+        "cold_chat": {
+          "answerCorrect": true,
+          "seconds": 65.83,
+          "usage": {
+            "input": 4993,
+            "output": 4,
+            "cacheRead": 0
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "8c3b58e829b834bcc5f3ea52ea3c37c8874321ac739287322cbfc9d3f1725c30",
+            "removedTools": [
+              "subagents_enable"
+            ],
+            "toolsChanged": null,
+            "systemChanged": null
+          }
+        },
+        "warm_chat": {
+          "answerCorrect": true,
+          "seconds": 66.356,
+          "usage": {
+            "input": 5022,
+            "output": 2,
+            "cacheRead": 0
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": true
+          },
+          "cacheAcceptance": "FAIL"
+        }
+      },
+      "diagnosticWorkerClosed": true
+    },
+    {
+      "sourceReport": "validation-schema-stable-full.json",
+      "strictFirstFollowupCacheGate": false,
+      "status": "PASS",
+      "checks": {
+        "cold_chat": {
+          "answerCorrect": true,
+          "seconds": 204.083,
+          "usage": {
+            "input": 4993,
+            "output": 4,
+            "cacheRead": 0
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "8c3b58e829b834bcc5f3ea52ea3c37c8874321ac739287322cbfc9d3f1725c30",
+            "removedTools": [
+              "subagents_enable"
+            ],
+            "toolsChanged": null,
+            "systemChanged": null
+          }
+        },
+        "warm_chat": {
+          "answerCorrect": true,
+          "seconds": 188.657,
+          "usage": {
+            "input": 5022,
+            "output": 2,
+            "cacheRead": 0
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": true
+          }
+        },
+        "real_read_tool_and_result": {
+          "answerCorrect": true,
+          "seconds": 9.344,
+          "usage": {
+            "input": 31,
+            "output": 14,
+            "cacheRead": 5171
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          }
+        },
+        "steady_warm_chat": {
+          "answerCorrect": true,
+          "seconds": 9.321,
+          "usage": {
+            "input": 401,
+            "output": 24,
+            "cacheRead": 4886
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          }
+        },
+        "second_real_read_tool_and_result": {
+          "answerCorrect": true,
+          "seconds": 10.987,
+          "usage": {
+            "input": 28,
+            "output": 34,
+            "cacheRead": 5438
+          },
+          "profileRequest": {
+            "toolsHash": "98d02b1aa0893b1bcf902471a8652b6064923217c40272cee3f3f41f6aa79482",
+            "systemHash": "e8479e77489cb06380364b9a6893c5784b2dcb580dd00b33ab23efba12b2e70a",
+            "removedTools": [],
+            "toolsChanged": false,
+            "systemChanged": false
+          }
+        }
+      },
+      "selectedSessionUnchanged": true,
+      "existingWorkersRetained": true,
+      "globalSettingsUnchanged": true,
+      "diagnosticWorkerClosed": true
+    }
+  ],
+  "systemPromptDiff": {
+    "toolsIdentical": true,
+    "onlyObservedChange": "The first request includes the auto-generated subagents_enable tool-list line; the second omits it.",
+    "userInstructionsFrozenOrRemoved": false,
+    "fixed": false
+  },
+  "toolContextDiagnostics": [
+    {
+      "name": "tool-context-probe",
+      "scope": "uncached tool request, same synthetic history as benchmark; diagnostic only, no tool executed",
+      "cases": [
+        {
+          "rows": 256,
+          "correct": false,
+          "seconds": 105.55088798096403,
+          "first_output_seconds": 63.46110252797371,
+          "first_text_seconds": 63.46110580896493,
+          "finish_reason": "length",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 512,
+            "prompt_tokens": 4991,
+            "total_tokens": 5503,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 4991,
+            "prompt_ms": 63445.45,
+            "prompt_per_token_ms": 12.711971548787817,
+            "prompt_per_second": 78.66600362988993,
+            "predicted_n": 512,
+            "predicted_ms": 42090.544,
+            "predicted_per_token_ms": 82.36897064579257,
+            "predicted_per_second": 12.14049407391836
+          },
+          "responseSummary": "Listed reference-table values instead of reading the file."
+        },
+        {
+          "rows": 40,
+          "correct": false,
+          "seconds": 43.73081545199966,
+          "first_output_seconds": 22.103136554011144,
+          "first_text_seconds": 22.10313874098938,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 200,
+            "prompt_tokens": 1103,
+            "total_tokens": 1303,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 1103,
+            "prompt_ms": 22087.412,
+            "prompt_per_token_ms": 20.024852221214868,
+            "prompt_per_second": 49.937946555259614,
+            "predicted_n": 200,
+            "predicted_ms": 21627.352,
+            "predicted_per_token_ms": 108.68016080402009,
+            "predicted_per_second": 9.201311376445902
+          },
+          "responseSummary": "Listed reference-table values instead of reading the file."
+        },
+        {
+          "rows": 0,
+          "correct": true,
+          "seconds": 9.846750725992024,
+          "first_output_seconds": 7.666894475987647,
+          "first_text_seconds": null,
+          "finish_reason": "tool_calls",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 31,
+            "prompt_tokens": 309,
+            "total_tokens": 340,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 309,
+            "prompt_ms": 7075.816,
+            "prompt_per_token_ms": 22.899080906148868,
+            "prompt_per_second": 43.66987496565768,
+            "predicted_n": 31,
+            "predicted_ms": 2755.657,
+            "predicted_per_token_ms": 91.85523333333335,
+            "predicted_per_second": 10.886695985748588
+          },
+          "responseSummary": "Valid read tool call; not executed."
+        }
+      ]
+    },
+    {
+      "name": "tool-scoping-probe",
+      "scope": "uncached diagnostic; same 256-row reference and user history, change only system instructions/data boundaries; no tools executed",
+      "cases": [
+        {
+          "case": "scoped_reference_tool",
+          "correct": false,
+          "seconds": 65.52074804797303,
+          "first_output_seconds": 64.41630711097969,
+          "first_text_seconds": 64.4163098189747,
+          "finish_reason": "stop",
+          "reasoning_characters": 0,
+          "usage": {
+            "completion_tokens": 16,
+            "prompt_tokens": 5038,
+            "total_tokens": 5054,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 5038,
+            "prompt_ms": 64400.363,
+            "prompt_per_token_ms": 12.782922389837237,
+            "prompt_per_second": 78.2293727133184,
+            "predicted_n": 16,
+            "predicted_ms": 1105.169,
+            "predicted_per_token_ms": 73.67793333333334,
+            "predicted_per_second": 13.572584826393067
+          },
+          "responseSummary": "Asserted file does not exist without calling a tool."
+        }
+      ]
+    }
+  ],
+  "decision": "Keep batch512/ubatch128 defaults; do not promote candidates. Prioritize local-profile loader/system-prompt stabilization and representative tool reliability evaluation."
+}

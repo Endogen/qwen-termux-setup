@@ -12,6 +12,7 @@ import tempfile
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+PROFILE_PACKAGE = './local-model-profiles'
 
 
 def object_at(parent, key):
@@ -95,6 +96,18 @@ def merge_settings(existing, incoming):
     overrides = object_at(compaction, 'modelOverrides')
     for model, values in incoming['compaction']['modelOverrides'].items():
         object_at(overrides, model).update(deepcopy(values))
+    # Auto-discovered personal extensions run BEFORE package extensions in Pi.
+    # The profile must run after loaders that may reactivate tools, so install it
+    # as the final user package, not an auto-discovered extension.
+    packages = result.setdefault('packages', [])
+    if not isinstance(packages, list):
+        raise ValueError('packages must be an array; merge manually')
+    for package in packages:
+        if not isinstance(package, str) and not (isinstance(package, dict) and isinstance(package.get('source'), str)):
+            raise ValueError('Invalid package entry; merge manually')
+        if isinstance(package, dict) and package['source'] == PROFILE_PACKAGE:
+            raise ValueError('Filtered local-model-profiles package; review manually')
+    result['packages'] = [package for package in packages if package != PROFILE_PACKAGE] + [PROFILE_PACKAGE]
     return result
 
 
@@ -115,17 +128,34 @@ def plan_install(agent, replace_extension=False):
         merged = merge(current, load_object(ROOT / 'pi' / template))
         if merged != current:
             changes[path] = (original, (json.dumps(merged, indent=2) + '\n').encode())
-    for name in ['model-profiles.mjs', 'model-profiles.ts']:
-        target = agent / 'extensions' / name
+    package_dir = agent / 'local-model-profiles'
+    for directory in [package_dir, agent / 'extensions']:
+        if directory.is_symlink():
+            raise ValueError(f'Refusing to replace a symlink: {directory}')
+    for name, source in [('model-profiles.mjs', ROOT / 'pi/extensions/model-profiles.mjs'),
+                         ('package.json', ROOT / 'pi/model-profile-package.json')]:
+        target = package_dir / name
         if target.is_symlink():
             raise ValueError(f'Refusing to replace a symlink: {target}')
-        expected = (ROOT / 'pi/extensions' / name).read_bytes()
+        expected = source.read_bytes()
         current = target.read_bytes() if target.exists() else None
         if current == expected:
             continue
         if current is not None and not replace_extension:
-            raise ValueError(f'{name} differs; review it and use --replace-extension explicitly')
+            raise ValueError(f'{target.name} differs; review it and use --replace-extension explicitly')
         changes[target] = (current, expected)
+    # Migrate the old auto-loaded pair with rollback; retaining its .ts entrypoint
+    # would install the profile twice and restore the wrong baseline on shutdown.
+    for name in ['model-profiles.mjs', 'model-profiles.ts']:
+        target = agent / 'extensions' / name
+        if target.is_symlink():
+            raise ValueError(f'Refusing to replace a symlink: {target}')
+        if not target.exists():
+            continue
+        current = target.read_bytes()
+        if current != (ROOT / 'pi/extensions' / name).read_bytes() and not replace_extension:
+            raise ValueError(f'{name} differs; review it and use --replace-extension explicitly')
+        changes[target] = (current, None)
     return changes
 
 
@@ -167,11 +197,14 @@ def apply_changes(agent, changes):
             actual = path.read_bytes() if path.exists() else None
             if actual != originals[path]:
                 raise RuntimeError(f'Configuration changed concurrently: {path.name}')
-            atomic_bytes(path, content)
+            if content is None:
+                path.unlink()
+            else:
+                atomic_bytes(path, content)
             written.append(path)
     except BaseException:
         for path in reversed(written):
-            if not path.exists() or path.read_bytes() != changes[path][1]:
+            if (path.read_bytes() if path.exists() else None) != changes[path][1]:
                 raise RuntimeError(f'Concurrent edit during rollback; inspect backups in {backup}')
             if originals[path] is None:
                 path.unlink()
@@ -202,7 +235,8 @@ def main():
         backup = apply_changes(agent, changes)
         print(f'Backup directory: {backup}')
         print('Installed. Start a fresh Pi worker, or reload only an idle worker.')
-        print('No default model, cloud credentials, packages, or running sessions were changed.')
+        print('Profile package ordered last; legacy auto-loaded profile files migrated if present.')
+        print('No default model, cloud credentials, other package entries, or running sessions were changed.')
     except (OSError, ValueError, KeyError, RuntimeError) as error:
         parser.exit(1, f'Not installed: {error}\n')
 

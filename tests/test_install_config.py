@@ -43,8 +43,9 @@ class ConfigTests(unittest.TestCase):
         models = json.loads((self.agent / 'models.json').read_text())
         self.assertEqual(models['providers']['cloud-test'], self.models['providers']['cloud-test'])
         settings = json.loads((self.agent / 'settings.json').read_text())
-        for key in ['defaultProvider', 'defaultModel', 'defaultThinkingLevel', 'packages']:
+        for key in ['defaultProvider', 'defaultModel', 'defaultThinkingLevel']:
             self.assertEqual(settings[key], self.settings[key])
+        self.assertEqual(settings['packages'], self.settings['packages'] + [INSTALL.PROFILE_PACKAGE])
         self.assertEqual(settings['compaction']['reserveTokens'], 6000)
         self.assertEqual(settings['compaction']['modelOverrides']['cloud-test/large'], {'keepRecentTokens': 12000})
         self.assertEqual(settings['compaction']['modelOverrides']['local-llama/qwen3.5-4b']['reserveTokens'], 2048)
@@ -68,7 +69,9 @@ class ConfigTests(unittest.TestCase):
             INSTALL.plan_install(self.agent)
         backup = INSTALL.apply_changes(self.agent, INSTALL.plan_install(self.agent, replace_extension=True))
         self.assertEqual((backup / 'extensions/model-profiles.mjs').read_bytes(), b'previous custom implementation')
-        self.assertEqual(target.read_bytes(), (ROOT / 'pi/extensions/model-profiles.mjs').read_bytes())
+        self.assertFalse(target.exists())
+        self.assertEqual((self.agent / 'local-model-profiles/model-profiles.mjs').read_bytes(),
+                         (ROOT / 'pi/extensions/model-profiles.mjs').read_bytes())
     def test_overlapping_profile_is_not_silently_stolen(self):
         self.put('model-profiles.json', {'profiles': [{'name': 'Different policy', 'models': [{'provider': 'local-llama', 'id': 'qwen3.5-4b'}], 'tools': ['bash']}]})
         with self.assertRaisesRegex(ValueError, 'already owns'):
@@ -105,6 +108,54 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual((self.agent / 'models.json').read_bytes(), original)
         self.assertEqual((self.agent / 'settings.json').read_bytes(), settings)
         self.assertFalse((self.agent / 'extensions').exists())
+    def test_legacy_pair_is_removed_backed_up_and_not_loaded_twice(self):
+        for name in ['model-profiles.ts', 'model-profiles.mjs']:
+            target = self.agent / 'extensions' / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((ROOT / 'pi/extensions' / name).read_bytes())
+        backup = INSTALL.apply_changes(self.agent, INSTALL.plan_install(self.agent))
+        for name in ['model-profiles.ts', 'model-profiles.mjs']:
+            self.assertFalse((self.agent / 'extensions' / name).exists())
+            self.assertEqual((backup / 'extensions' / name).read_bytes(), (ROOT / 'pi/extensions' / name).read_bytes())
+        manifest = json.loads((self.agent / 'local-model-profiles/package.json').read_text())
+        self.assertEqual(manifest['pi']['extensions'], ['./model-profiles.mjs'])
+        self.assertEqual(INSTALL.plan_install(self.agent), {})
+    def test_profile_is_reordered_after_new_packages_without_changing_their_settings(self):
+        packages = [INSTALL.PROFILE_PACKAGE, {'source': 'npm:example', 'extensions': ['entry.ts']}, 'npm:other']
+        original = {'packages': packages, 'extensions': ['-builtin:mcp'], 'custom': True}
+        merged = INSTALL.merge_settings(original, {'compaction': {'modelOverrides': {}}})
+        self.assertEqual(merged['packages'], packages[1:] + [INSTALL.PROFILE_PACKAGE])
+        self.assertEqual(merged['extensions'], ['-builtin:mcp'])
+        self.assertEqual(original['packages'], packages)
+    def test_invalid_or_filtered_package_configuration_is_not_silently_changed(self):
+        for packages in [None, {}, [1], [{'source': INSTALL.PROFILE_PACKAGE, 'extensions': []}]]:
+            with self.assertRaises(ValueError):
+                INSTALL.merge_settings({'packages': packages}, {'compaction': {'modelOverrides': {}}})
+    def test_failed_legacy_removal_rolls_back_new_package_and_first_removal(self):
+        for name in ['model-profiles.ts', 'model-profiles.mjs']:
+            target = self.agent / 'extensions' / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((ROOT / 'pi/extensions' / name).read_bytes())
+        real_unlink = Path.unlink
+        def fail_wrapper(path, *args, **kwargs):
+            if path == self.agent / 'extensions/model-profiles.ts':
+                raise OSError('simulated removal error')
+            return real_unlink(path, *args, **kwargs)
+        with patch.object(Path, 'unlink', fail_wrapper):
+            with self.assertRaisesRegex(OSError, 'simulated removal'):
+                INSTALL.apply_changes(self.agent, INSTALL.plan_install(self.agent))
+        for name in ['model-profiles.ts', 'model-profiles.mjs']:
+            self.assertEqual((self.agent / 'extensions' / name).read_bytes(), (ROOT / 'pi/extensions' / name).read_bytes())
+        self.assertFalse((self.agent / 'local-model-profiles/model-profiles.mjs').exists())
+        self.assertFalse((self.agent / 'settings.json').exists())
+    def test_symlinked_package_directory_is_not_followed(self):
+        self.agent.mkdir()
+        source = Path(self.temp.name) / 'elsewhere'
+        source.mkdir()
+        (self.agent / 'local-model-profiles').symlink_to(source, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, 'symlink'):
+            INSTALL.plan_install(self.agent)
+        self.assertEqual(list(source.iterdir()), [])
     def test_symlinked_configuration_is_not_replaced(self):
         self.agent.mkdir()
         source = Path(self.temp.name) / 'elsewhere.json'

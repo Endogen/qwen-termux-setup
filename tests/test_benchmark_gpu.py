@@ -1,7 +1,10 @@
 import importlib.util
 import json
 from pathlib import Path
+import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('benchmark_gpu', Path(__file__).resolve().parents[1] / 'qwen3.5-4b/benchmark-gpu.py')
 benchmark = importlib.util.module_from_spec(spec)
@@ -39,6 +42,59 @@ class StreamingTests(unittest.TestCase):
                        sse({'error': {'message': 'overflow'}})]:
             with self.assertRaises(RuntimeError):
                 benchmark.collect_stream(events, 0, now=lambda: 1)
+
+
+class ProbeTests(unittest.TestCase):
+    def test_repetition_failure_keeps_prior_tool_measurements_and_fails_run(self):
+        replies = [
+            {'role': 'assistant', 'content': '1037'},
+            {'role': 'assistant', 'content': '1019'},
+            {'role': 'assistant', 'content': '', 'tool_calls': [{'id': 'fixture', 'function': {
+                'name': 'read', 'arguments': '{"path":"/tmp/gpu-benchmark-fixture.txt"}'}}]},
+            {'role': 'assistant', 'content': 'GPU_BENCHMARK_TOOL_OK'},
+            {'role': 'assistant', 'content': '1023'},
+            {'role': 'assistant', 'content': '1011'},
+            {'role': 'assistant', 'content': 'incorrect repetition'},
+        ]
+        metrics = {'finish_reason': 'stop', 'reasoning_characters': 0,
+                   'seconds': 1, 'first_output_seconds': 1}
+        args = SimpleNamespace(url='http://unused', rows=40, repeats=1)
+        report = {}
+        with patch.object(benchmark, 'get', side_effect=[[{'is_processing': False}],
+                         {'data': [{'id': 'qwen3.5-4b'}]}]), \
+             patch.object(benchmark, 'post', side_effect=[(reply, metrics) for reply in replies]), \
+             patch('builtins.print'):
+            with self.assertRaisesRegex(RuntimeError, 'Correctness failure in warm_decode'):
+                benchmark.run(args, report)
+        self.assertEqual([row['case'] for row in report['runs']], [
+            'cold_prefill', 'warm_followup', 'tool_call', 'tool_result',
+            'changed_tools', 'stable_after_change', 'warm_decode'])
+        self.assertTrue(all(row['correct'] for row in report['runs'][:-1]))
+        self.assertFalse(report['runs'][-1]['correct'])
+        self.assertEqual(report['runs'][-1]['response'], replies[-1])
+
+
+class ReportTests(unittest.TestCase):
+    def test_reports_are_written_privately_including_existing_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'nested' / 'report.json'
+            for status in ('PASS', 'FAIL'):
+                if path.exists():
+                    path.chmod(0o644)
+                benchmark.write_report(path, {'status': status})
+                self.assertEqual(json.loads(path.read_text()), {'status': status})
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_main_preserves_failure_report_and_original_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'report.json'
+            with patch('sys.argv', ['benchmark-gpu.py', '--run', '--label', 'test', '--output', str(path)]), \
+                 patch.object(benchmark, 'run', side_effect=RuntimeError('Correctness failure')):
+                with self.assertRaisesRegex(RuntimeError, 'Correctness failure'):
+                    benchmark.main()
+            report = json.loads(path.read_text())
+            self.assertEqual(report['status'], 'FAIL')
+            self.assertEqual(report['error'], 'Correctness failure')
 
 
 if __name__ == '__main__':

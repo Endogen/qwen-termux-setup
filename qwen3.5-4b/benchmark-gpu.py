@@ -127,6 +127,9 @@ def run(args, report):
                 correct = message["content"].strip() == expected and not message.get("tool_calls")
             correct = correct and timing["finish_reason"] != "length" and timing["reasoning_characters"] == 0
             row = {"repeat": repeat + 1, "case": name, "correct": correct, **timing}
+            if not correct:
+                # Only synthetic fixture responses, never real app prompts.
+                row["response"] = message
             report["runs"].append(row)
             print(json.dumps(row), flush=True)
             if not correct:
@@ -135,19 +138,31 @@ def run(args, report):
 
         turn("cold_prefill", "What is the value of record 0037? Reply with the integer only. Do not use tools.", "1037", cache=False)
         turn("warm_followup", "What is the value of record 0019? Reply with the integer only. Do not use tools.", "1019")
-        copied = " ".join(["red green blue yellow"] * 24)
-        turn("warm_decode", f"Copy the following text exactly, on one line, without quotes or tools:\n{copied}", copied)
         call = turn("tool_call", "Read /tmp/gpu-benchmark-fixture.txt with read. Then reply only with its contents.", expect_read=True)
         messages.append({"role": "tool", "tool_call_id": call["tool_calls"][0]["id"], "content": "GPU_BENCHMARK_TOOL_OK"})
         turn("tool_result", expected="GPU_BENCHMARK_TOOL_OK")
         tools = [READ, EXTRA]
         turn("changed_tools", "What is the value of record 0023? Reply with the integer only. Do not use tools.", "1023")
         turn("stable_after_change", "What is the value of record 0011? Reply with the integer only. Do not use tools.", "1011")
+        # Keep the repetition stress test last: a failure must not prevent us
+        # from measuring tool/schema behavior, or poison those requests' history.
+        copied = " ".join(["red green blue yellow"] * 24)
+        turn("warm_decode", f"Copy the following text exactly, on one line, without quotes or tools:\n{copied}", copied)
     report["medians"] = {}
     for case in dict.fromkeys(row["case"] for row in report["runs"]):
         rows = [row for row in report["runs"] if row["case"] == case]
         report["medians"][case] = {field: statistics.median(row[field] for row in rows if row[field] is not None)
                                     for field in ("seconds", "first_output_seconds") if any(row[field] is not None for row in rows)}
+
+
+def write_report(path, report):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Path.open does not accept built-in open's opener argument. Apply the mode
+    # to existing reports too; umask alone only protects newly created files.
+    with open(path, "w", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
+        os.fchmod(output.fileno(), 0o600)
+        json.dump(report, output, indent=2)
+        output.write("\n")
 
 
 def main():
@@ -173,10 +188,7 @@ def main():
         report["error"] = str(error)
         raise
     finally:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        with args.output.open("w", opener=lambda path, flags: os.open(path, flags, 0o600)) as output:
-            json.dump(report, output, indent=2)
-            output.write("\n")
+        write_report(args.output, report)
         print(f"Report: {args.output}")
 
 
